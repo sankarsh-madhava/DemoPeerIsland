@@ -1,0 +1,30 @@
+replicaCount: 2
+namespace: prod
+deploymentEnvironment: prod
+
+
+image:
+  repository: peerislandacr.azurecr.io/sample-app-pl
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIp
+  port: 80
+
+resources:
+ limits:
+   cpu: 2
+   memory: 15gi
+
+ requests:
+   cpu: 1
+   memory: 8Gi
+
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70

@@ -1,0 +1,87 @@
+trigger:
+  - main
+
+# Name of pipeline
+name: "Terraform-AKS-Infrastructure"
+
+# Microsoft host agent
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+
+  azureServiceConnection: 'pl-service-connection'   
+  terraformDirectory: 'infra'                           
+  storageAccountName: 'tfstateaksprodpl'              
+  containerName: 'tfstatepl'                              
+  stateFile: 'aks-prod-pl.tfstate' 
+  resourceGroupName: 'peerislandrg'                  
+  location: 'westeurope'
+
+stages:
+  - stage: Terraform
+    displayName: "Provision AKS Infrastructure"
+    jobs:
+      - job: terraform
+        displayName: "Terraform Init, Plan & Apply"
+        steps:
+
+          # Checkout repo
+          - checkout: self
+
+          # Install Terraform
+          - task: TerraformInstaller@1
+            displayName: "Install Terraform"
+            inputs:
+              terraformVersion: '1.6.6'
+
+          # Azure CLI Login
+          - task: AzureCLI@2
+            displayName: "Azure Login"
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                echo "Logged into Azure"
+                az account show
+
+          # Terraform Init
+          - script: |
+              cd $(terraformDirectory)
+              echo "Initializing Terraform..."
+              terraform init \
+                -backend-config="resource_group_name=$(resourceGroupName)" \
+                -backend-config="storage_account_name=$(storageAccountName)" \
+                -backend-config="container_name=$(containerName)" \
+                -backend-config="key=$(stateFile)"
+            displayName: "Terraform Init"
+
+          # Terraform Validate
+          - script: |
+              cd $(terraformDirectory)
+              terraform validate
+            displayName: "Terraform Validate"
+
+          # Terraform Plan
+          - script: |
+              cd $(terraformDirectory)
+              terraform plan -out=tfplan -input=false
+            displayName: "Terraform Plan"
+          # Terraform security scan using checkov
+
+          - script: |
+              pip install checkov
+              checkov -d ./infra
+            displayName: "Run Checkov Scan"
+
+          # Terraform Apply (before apply manual approval recommended as a gateway)
+          - task: ManualValidation@0
+            displayName: "Approval before apply"
+            inputs:
+              instructions: 'Review the Terraform plan and approve to apply changes.'
+
+          - script: |
+              cd $(terraformDirectory)
+              terraform apply -auto-approve tfplan
+            displayName: "Terraform Apply"

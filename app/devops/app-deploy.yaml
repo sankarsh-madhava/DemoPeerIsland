@@ -1,0 +1,41 @@
+trigger:
+  - main
+
+variables:
+  AKS_SERVICE_CONNECTION: 'AKS-SC-PL'
+  aks-prod-rg: 'peerislandrg'
+  aks-prod-cluster: 'pl-aks-cluster'
+  ACR_NAME: 'peerislandacr'
+
+
+
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - checkout: self
+
+  - task: HelmInstaller@1
+    inputs:
+      helmVersionToInstall: 'latest'
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: '$(AKS_SERVICE_CONNECTION)'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az aks get-credentials --resource-group $(aks-prod-rg) --name $(aks-prod-cluster) --overwrite-existing
+        helm upgrade --install sample-app ./app/helm \
+          --set image.repository=$(ACR_NAME).azurecr.io/sample-app-pl \
+          --set image.tag=$(Build.BuildId) 
+
+    -task: AzureCLI@2
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace
+
