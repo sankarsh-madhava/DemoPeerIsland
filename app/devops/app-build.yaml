@@ -1,0 +1,22 @@
+trigger:
+  - main
+
+variables:
+  imageName: 'sample-app-pl'
+  ACR_SERVICE_CONNECTION: 'DOCKER-SC-PL'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+
+steps:
+  - checkout: self
+
+  - task: Docker@2
+    inputs:
+      command: 'buildAndPush'
+      repository: 'peerislandacr.azurecr.io/$(imageName)'
+      dockerfile: 'app/Dockerfile'
+      containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+      tags: |
+        $(Build.BuildId)

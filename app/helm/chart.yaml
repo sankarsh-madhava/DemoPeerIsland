@@ -1,0 +1,7 @@
+apiversion: v2
+name: peerisland-app-helm-chart
+description: A Helm chart for deploying app on to AKS
+
+type: application
+
+version: 0.1.0
